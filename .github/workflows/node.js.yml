@@ -1,5 +1,9 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+# This workflow will do a clean installation of node dependencies, cache/restore them,
+# build the source code, spin up a Redis service container, and run tests across
+# different versions of node.
+# For more information see:
+#   https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+#   https://docs.github.com/en/actions/using-containerized-services/creating-redis-service-containers
 
 name: Node.js CI
 
@@ -19,6 +23,19 @@ jobs:
         node-version: [18.x, 20.x, 22.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
+    # Redis service container available to all steps in this job via localhost:6379
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+        # Set health checks to wait until redis has started
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
     - name: Use Node.js ${{ matrix.node-version }}
@@ -29,3 +46,6 @@ jobs:
     - run: npm ci
     - run: npm run build --if-present
     - run: npm test
+      env:
+        # Point the app/tests at the service container instead of a real remote Redis
+        REDIS_URL: redis://localhost:6379
